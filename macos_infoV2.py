@@ -1,5 +1,8 @@
 #MAC OS M1 system status info gethering script
+#version 2.2, by zell, 2023.9.19
+#improved uart send functions added lite mode for testing
 #version 2.1, by zell, 2023.9.16
+#updated CPU GPU freq info
 
 #sudo python3 macos_infoV2.py
 # Install the following Python modules:
@@ -16,15 +19,41 @@ import os
 import time
 import psutil
 
-updateTime = 10 #number of seconds between each update
+updateTime = 2 #number of seconds between each update
 condition = 1
 
-def sendData(temp, rpm, gpu, free_disk, free_mem, procs):
+def ReadData():
     try:
-        connection = serial.Serial('/dev/tty.MyDisplay-ESP32SPP')
-        data = temp + ',' + rpm + ',' + str(free_mem) + ',' + str(free_disk) + ',' + gpu + ',' + str(procs) + '/'
+        #connection = serial.Serial('/dev/tty.MyDisplay-ESP32SPP')
+        connection = serial.Serial('/dev/tty.usbserial-0203CE1B',115200, timeout=1)
+        #data = temp + ',' + rpm + ',' + str(free_mem) + ',' + str(free_disk) + ',' + gpu + ',' + str(procs) + '/'
+        tmp_buf=connection.read(24)
+        #connection.write(data.encode())
+        print(">>: Data read", tmp_buf.decode())
+        #connection.close  
+    except Exception as e:
+        print(e)
+        condition =0
+        
+def sendData_lite(GPU_F, ECPU_F, PCPU_F, free_disk, free_mem, proc_counter):
+    try:
+        #connection = serial.Serial('/dev/tty.MyDisplay-ESP32SPP')
+        connection = serial.Serial('/dev/tty.usbserial-0203CE1B',115200, timeout=1)
+        data = GPU_F + ',' + ECPU_F + ',' + PCPU_F + ',' +str(free_mem) + 'MB/n'
         connection.write(data.encode())
-        print("Data written", data.encode())
+        print("#>: Data written", data.encode())
+        #connection.close  
+    except Exception as e:
+        print(e)
+        condition =0
+        
+def sendData(GPU_F, ECPU_F, PCPU_F, free_disk, free_mem, proc_counter):
+    try:
+        #connection = serial.Serial('/dev/tty.MyDisplay-ESP32SPP')
+        connection = serial.Serial('/dev/tty.usbserial-0203CE1B',115200, timeout=1)
+        data = GPU_F + ',' + ECPU_F + ',' + PCPU_F + ',' +str(free_mem) + 'G,' + str(free_disk) + 'G,' + str(proc_counter) + '/'
+        connection.write(data.encode())
+        print("#>: Data written", data.encode())
         connection.close  
     except Exception as e:
         print(e)
@@ -98,7 +127,7 @@ while(condition):
     #rpm = FAN_Speed()
     obj_Disk = psutil.disk_usage('/')
     free_disk = int(obj_Disk.free / (1000.0 ** 3))
-    free_mem = (int(psutil.virtual_memory().total - psutil.virtual_memory().used)/ (1024 * 1024)) 
+    free_mem = int(int(psutil.virtual_memory().total - psutil.virtual_memory().used)/ (1024 * 1024)) 
     print("E-Cluster CPU frequency="+str(ECPU_F))
     print("P-Cluster CPU frequency="+str(PCPU_F))
     print("GPU HW active frequency="+str(GPU_F))
@@ -112,7 +141,9 @@ while(condition):
     for proc in psutil.process_iter():
         proc_counter += 1
     #sendData_uart(temp, rpm, temp, free_disk, free_mem, proc_counter)
-    #sendData(temp, rpm, temp, free_disk, free_mem, proc_counter)
+    sendData_lite(GPU_F, ECPU_F, PCPU_F, free_disk, free_mem, proc_counter)
+    #sendData(GPU_F, ECPU_F, PCPU_F, free_disk, free_mem, proc_counter)
+    ReadData()
     time.sleep(updateTime)
     
 #lingzhou@192 host_python % python3 list_serial_ports.py                        
